@@ -45,6 +45,10 @@ jobs:
         cd deploy && zip -r ../app.zip . -x "*.git*" "node_modules/*"
         echo "📦 Deployment package created: app.zip"
 
+    - name: Create S3 bucket for deployment (if needed)
+      run: |
+        aws s3 mb s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-568015476897 --region ${{ secrets.AWS_REGION }} || echo "Bucket may already exist"
+
     - name: Deploy to AWS Elastic Beanstalk
       uses: einaregilsson/beanstalk-deploy@v21
       with:
@@ -72,7 +76,7 @@ jobs:
     - name: Verify deployment
       run: |
         echo "🚀 Deployment verification started..."
-        sleep 30  # Wait for app to be fully ready
+        sleep 30
         DEPLOYMENT_URL=$(aws elasticbeanstalk describe-environments \
           --application-name ${{ env.EB_APP_NAME }} \
           --environment-names ${{ env.EB_ENV_NAME }} \
