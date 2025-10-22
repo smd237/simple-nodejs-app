@@ -50,11 +50,11 @@ jobs:
     - name: Create deployment package
       run: |
         echo "📦 Creating deployment package..."
-        mkdir -p deploy
-        cp -r *.js *.json test/ deploy/
-        cd deploy && zip -r ../app.zip . -x "*.git*" "node_modules/*"
-        echo "✅ Deployment package created: app.zip"
+        # Create zip file directly in current directory
+        zip -r app.zip *.js *.json test/ -x "node_modules/*" "*.git*"
+        echo "✅ Deployment package created"
         ls -la app.zip
+        echo "📊 File size: $(du -h app.zip | cut -f1)"
 
     - name: Deploy to AWS Elastic Beanstalk
       uses: einaregilsson/beanstalk-deploy@v21
