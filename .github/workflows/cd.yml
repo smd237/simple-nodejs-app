@@ -8,7 +8,7 @@ on:
 env:
   AWS_REGION: 'us-east-1'
   EB_APP_NAME: 'simple-nodejs-app'
-  EB_ENV_NAME: 'SimpleNodejsApp-env'
+  EB_ENV_NAME: 'Simple-nodejs-app-env'
 
 jobs:
   deploy:
@@ -38,16 +38,23 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
+    - name: Verify Elastic Beanstalk application
+      run: |
+        echo "🔍 Verifying Elastic Beanstalk application: ${{ env.EB_APP_NAME }}"
+        echo "🔍 Environment: ${{ env.EB_ENV_NAME }}"
+        aws elasticbeanstalk describe-applications \
+          --application-names ${{ env.EB_APP_NAME }} \
+          --region ${{ env.AWS_REGION }}
+        echo "✅ Application verified successfully"
+
     - name: Create deployment package
       run: |
+        echo "📦 Creating deployment package..."
         mkdir -p deploy
         cp -r *.js *.json test/ deploy/
         cd deploy && zip -r ../app.zip . -x "*.git*" "node_modules/*"
-        echo "📦 Deployment package created: app.zip"
-
-    - name: Create S3 bucket for deployment (if needed)
-      run: |
-        aws s3 mb s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-568015476897 --region ${{ secrets.AWS_REGION }} || echo "Bucket may already exist"
+        echo "✅ Deployment package created: app.zip"
+        ls -la app.zip
 
     - name: Deploy to AWS Elastic Beanstalk
       uses: einaregilsson/beanstalk-deploy@v21
@@ -75,17 +82,26 @@ jobs:
 
     - name: Verify deployment
       run: |
-        echo "🚀 Deployment verification started..."
-        sleep 30
+        echo "🚀 Starting deployment verification..."
+        sleep 30  # Wait for application to be fully ready
+        
         DEPLOYMENT_URL=$(aws elasticbeanstalk describe-environments \
           --application-name ${{ env.EB_APP_NAME }} \
           --environment-names ${{ env.EB_ENV_NAME }} \
           --query 'Environments[0].CNAME' \
           --output text)
         
-        echo "📡 Testing endpoints on: $DEPLOYMENT_URL"
-        curl -f "http://$DEPLOYMENT_URL/" || echo "Root endpoint check failed"
-        curl -f "http://$DEPLOYMENT_URL/health" || echo "Health endpoint check failed"
+        echo "📡 Testing application endpoints on: $DEPLOYMENT_URL"
+        
+        echo "1. Testing root endpoint (/):"
+        curl -s -f "http://$DEPLOYMENT_URL/" || echo "⚠️  Root endpoint check failed"
+        
+        echo "2. Testing health endpoint (/health):"
+        curl -s -f "http://$DEPLOYMENT_URL/health" || echo "⚠️  Health endpoint check failed"
+        
+        echo "3. Testing info endpoint (/info):"
+        curl -s -f "http://$DEPLOYMENT_URL/info" || echo "⚠️  Info endpoint check failed"
+        
         echo "✅ Deployment verification completed"
 
     - name: Create deployment summary
@@ -99,8 +115,14 @@ jobs:
         echo "### 🚀 AWS Deployment Successful" >> $GITHUB_STEP_SUMMARY
         echo "**Application:** Simple Node.js App" >> $GITHUB_STEP_SUMMARY
         echo "**Version:** v${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Status:** ✅ Successfully deployed to AWS" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ✅ Successfully deployed to AWS Elastic Beanstalk" >> $GITHUB_STEP_SUMMARY
         echo "**Environment:** ${{ env.EB_ENV_NAME }}" >> $GITHUB_STEP_SUMMARY
         echo "**Live URL:** http://$DEPLOYMENT_URL" >> $GITHUB_STEP_SUMMARY
+        echo "**AWS Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
         echo "**Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
         echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "#### 🌐 Application Endpoints:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Main Page:** http://$DEPLOYMENT_URL/" >> $GITHUB_STEP_SUMMARY
+        echo "- **Health Check:** http://$DEPLOYMENT_URL/health" >> $GITHUB_STEP_SUMMARY
+        echo "- **App Info:** http://$DEPLOYMENT_URL/info" >> $GITHUB_STEP_SUMMARY

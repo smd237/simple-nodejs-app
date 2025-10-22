@@ -49,3 +49,28 @@ npm start
 
 ![CI Pipeline](https://github.com/smd237/simple-nodejs-app/actions/workflows/ci.yml/badge.svg)
 ![CD Pipeline](https://github.com/smd237/simple-nodejs-app/actions/workflows/cd.yml/badge.svg)
+
+## 🚀 Live Deployment
+
+This application is automatically deployed to **AWS Elastic Beanstalk** on every push to the main branch.
+
+### 🌐 Live Application
+**URL:** http://simple-nodejs-app-env.eba-f3ewffnb.us-east-1.elasticbeanstalk.com
+
+### ✅ Test Endpoints
+- **Main Page:** http://simple-nodejs-app-env.eba-f3ewffnb.us-east-1.elasticbeanstalk.com/
+- **Health Check:** http://simple-nodejs-app-env.eba-f3ewffnb.us-east-1.elasticbeanstalk.com/health
+- **App Info:** http://simple-nodejs-app-env.eba-f3ewffnb.us-east-1.elasticbeanstalk.com/info
+
+### 🔄 Deployment Process
+1. Code pushed to GitHub
+2. CI Pipeline runs tests ✅
+3. CD Pipeline deploys to AWS ✅
+4. Application goes live automatically 🎉
+
+### ☁️ AWS Services Used
+- **Elastic Beanstalk**: Application hosting and auto-scaling
+- **EC2**: Virtual servers running Node.js
+- **S3**: Deployment package storage
+- **CloudWatch**: Monitoring and logs
+- **Load Balancer**: Traffic distribution
