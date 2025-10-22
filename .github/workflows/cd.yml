@@ -1,4 +1,4 @@
-name: CD Pipeline
+name: CD Pipeline - AWS Deployment
 
 on:
   push:
@@ -6,11 +6,13 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: '20.x'
+  AWS_REGION: 'us-east-1'
+  EB_APP_NAME: 'simple-nodejs-app'
+  EB_ENV_NAME: 'SimpleNodejsApp-env'
 
 jobs:
   deploy:
-    name: Deploy Application
+    name: Deploy to AWS Elastic Beanstalk
     runs-on: ubuntu-latest
     
     steps:
@@ -20,7 +22,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ env.NODE_VERSION }}
+        node-version: '20.x'
         cache: 'npm'
 
     - name: Install dependencies
@@ -29,33 +31,72 @@ jobs:
     - name: Run tests
       run: npm test
 
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
     - name: Create deployment package
       run: |
-        echo "📦 Creating deployment package..."
         mkdir -p deploy
         cp -r *.js *.json test/ deploy/
-        echo "✅ Deployment package created"
+        cd deploy && zip -r ../app.zip . -x "*.git*" "node_modules/*"
+        echo "📦 Deployment package created: app.zip"
 
-    - name: Simulate deployment
+    - name: Deploy to AWS Elastic Beanstalk
+      uses: einaregilsson/beanstalk-deploy@v21
+      with:
+        aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        application_name: ${{ env.EB_APP_NAME }}
+        environment_name: ${{ env.EB_ENV_NAME }}
+        version_label: v${{ github.run_number }}-${{ github.sha }}
+        region: ${{ env.AWS_REGION }}
+        deployment_package: app.zip
+        wait_for_environment_recovery: 300
+        wait_for_deployment: 300
+
+    - name: Get deployment URL
+      id: eb
       run: |
-        echo "🚀 Starting deployment process..."
-        echo "✅ Tests passed successfully"
-        echo "📦 Application packaged"
-        echo "🌐 Deploying to production environment..."
-        echo "✅ Deployment completed successfully"
-        echo ""
-        echo "📊 Deployment Summary:"
-        echo "- Application: Simple Node.js App"
-        echo "- Version: 1.0.0"
-        echo "- Status: ✅ Deployed"
-        echo "- Timestamp: $(date -u)"
-        echo "- Commit: ${{ github.sha }}"
+        DEPLOYMENT_URL=$(aws elasticbeanstalk describe-environments \
+          --application-name ${{ env.EB_APP_NAME }} \
+          --environment-names ${{ env.EB_ENV_NAME }} \
+          --query 'Environments[0].CNAME' \
+          --output text)
+        echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+        echo "🌐 Application deployed to: $DEPLOYMENT_URL"
+
+    - name: Verify deployment
+      run: |
+        echo "🚀 Deployment verification started..."
+        sleep 30  # Wait for app to be fully ready
+        DEPLOYMENT_URL=$(aws elasticbeanstalk describe-environments \
+          --application-name ${{ env.EB_APP_NAME }} \
+          --environment-names ${{ env.EB_ENV_NAME }} \
+          --query 'Environments[0].CNAME' \
+          --output text)
+        
+        echo "📡 Testing endpoints on: $DEPLOYMENT_URL"
+        curl -f "http://$DEPLOYMENT_URL/" || echo "Root endpoint check failed"
+        curl -f "http://$DEPLOYMENT_URL/health" || echo "Health endpoint check failed"
+        echo "✅ Deployment verification completed"
 
     - name: Create deployment summary
       run: |
-        echo "### 🚀 Deployment Successful" >> $GITHUB_STEP_SUMMARY
+        DEPLOYMENT_URL=$(aws elasticbeanstalk describe-environments \
+          --application-name ${{ env.EB_APP_NAME }} \
+          --environment-names ${{ env.EB_ENV_NAME }} \
+          --query 'Environments[0].CNAME' \
+          --output text)
+        
+        echo "### 🚀 AWS Deployment Successful" >> $GITHUB_STEP_SUMMARY
         echo "**Application:** Simple Node.js App" >> $GITHUB_STEP_SUMMARY
-        echo "**Version:** 1.0.0" >> $GITHUB_STEP_SUMMARY
-        echo "**Status:** ✅ Successfully deployed" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** v${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ✅ Successfully deployed to AWS" >> $GITHUB_STEP_SUMMARY
+        echo "**Environment:** ${{ env.EB_ENV_NAME }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Live URL:** http://$DEPLOYMENT_URL" >> $GITHUB_STEP_SUMMARY
         echo "**Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
         echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
