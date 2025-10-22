@@ -3,7 +3,7 @@ name: CD Pipeline
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # Allows manual triggering
+  workflow_dispatch:
 
 env:
   NODE_VERSION: '20.x'
@@ -12,7 +12,6 @@ jobs:
   deploy:
     name: Deploy Application
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     
     steps:
     - name: Checkout code
@@ -25,30 +24,38 @@ jobs:
         cache: 'npm'
 
     - name: Install dependencies
-      run: npm ci
+      run: npm install
 
     - name: Run tests
       run: npm test
 
-    - name: Deployment Simulation
+    - name: Create deployment package
+      run: |
+        echo "📦 Creating deployment package..."
+        mkdir -p deploy
+        cp -r *.js *.json test/ deploy/
+        echo "✅ Deployment package created"
+
+    - name: Simulate deployment
       run: |
         echo "🚀 Starting deployment process..."
         echo "✅ Tests passed successfully"
-        echo "📦 Building application package"
-        echo "🌐 Deploying to production environment"
+        echo "📦 Application packaged"
+        echo "🌐 Deploying to production environment..."
         echo "✅ Deployment completed successfully"
-        echo "Application would be available at: https://your-app.herokuapp.com"
-        echo "Health check endpoint: /health"
+        echo ""
+        echo "📊 Deployment Summary:"
+        echo "- Application: Simple Node.js App"
+        echo "- Version: 1.0.0"
+        echo "- Status: ✅ Deployed"
+        echo "- Timestamp: $(date -u)"
+        echo "- Commit: ${{ github.sha }}"
 
-    - name: Create Deployment Summary
+    - name: Create deployment summary
       run: |
-        echo "# Deployment Summary" >> $GITHUB_STEP_SUMMARY
-        echo "## Application: Simple Node.js App" >> $GITHUB_STEP_SUMMARY
-        echo "## Version: 1.0.0" >> $GITHUB_STEP_SUMMARY
-        echo "## Status: ✅ Successfully Deployed" >> $GITHUB_STEP_SUMMARY
-        echo "## Timestamp: $(date -u)" >> $GITHUB_STEP_SUMMARY
-        echo "## Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-        echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
-        echo "- Verify deployment manually" >> $GITHUB_STEP_SUMMARY
-        echo "- Run smoke tests" >> $GITHUB_STEP_SUMMARY
-        echo "- Monitor application logs" >> $GITHUB_STEP_SUMMARY
+        echo "### 🚀 Deployment Successful" >> $GITHUB_STEP_SUMMARY
+        echo "**Application:** Simple Node.js App" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** 1.0.0" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ✅ Successfully deployed" >> $GITHUB_STEP_SUMMARY
+        echo "**Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
